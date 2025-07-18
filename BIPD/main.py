@@ -13,6 +13,8 @@ import pandas as pd
 from datetime import datetime
 import warnings
 import argparse
+from tqdm import tqdm
+import time
 
 # 모듈 경로 설정
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -22,7 +24,7 @@ from core.backtester import ImmunePortfolioBacktester
 from utils.data_loader import get_default_symbols
 from utils.decision_analyzer import DecisionAnalyzer
 from visualization.plotter import PortfolioPlotter, ImmuneSystemPlotter, save_plot
-from visualization.html_dashboard import HTMLDashboardGenerator
+# from visualization.html_dashboard import HTMLDashboardGenerator  # 제거됨
 from visualization.immune_visualization import ImmuneSystemVisualizer
 
 warnings.filterwarnings("ignore")
@@ -57,35 +59,36 @@ def parse_arguments():
 def create_results_directory(results_dir: str) -> str:
     """결과 디렉토리 생성"""
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    full_path = os.path.join(results_dir, f"bipd_results_{timestamp}")
+    full_path = os.path.join(results_dir, f"analysis_{timestamp}")
     os.makedirs(full_path, exist_ok=True)
     return full_path
 
 
 def print_system_info():
     """시스템 정보 출력"""
-    print("=" * 60)
+    print("\n" + "=" * 60)
     print("BIPD: Behavioral Immune Portfolio Defense System")
     print("=" * 60)
     print("생체면역시스템 기반 적응형 포트폴리오 관리 시스템")
-    print("- T-Cell: 위기 감지 및 설명가능성")
-    print("- B-Cell: 전문화된 투자 전략 생성")
-    print("- Memory Cell: 과거 경험 학습 및 재활용")
-    print("- Risk Management: 포트폴리오 제약 및 리스크 관리")
-    print("=" * 60)
+    print("├─ T-Cell: 위기 감지 및 설명가능성")
+    print("├─ B-Cell: 전문화된 투자 전략 생성")
+    print("├─ Memory Cell: 과거 경험 학습 및 재활용")
+    print("└─ Risk Management: 포트폴리오 제약 및 리스크 관리")
+    print("=" * 60 + "\n")
 
 
 def print_comprehensive_results(metrics: dict, symbols: list):
     """종합 백테스트 결과 출력"""
-    print("\n" + "=" * 50)
+    print("\n" + "=" * 45)
     print("BIPD 포트폴리오 성과 요약")
-    print("=" * 50)
+    print("=" * 45)
     
-    print(f"총 수익률: {metrics['Total Return']:.2%}")
-    print(f"샤프 비율: {metrics['Sharpe Ratio']:.3f}")
-    print(f"최대 낙폭: {metrics['Max Drawdown']:.2%}")
-    print(f"연간 변동성: {metrics['Volatility']:.2%}")
-    print(f"승률: {metrics['Win Rate']:.2%}")
+    # 성과 지표 시각화
+    print(f"총 수익률    : {metrics['Total Return']:>8.2%}")
+    print(f"샤프 비율    : {metrics['Sharpe Ratio']:>8.3f}")
+    print(f"최대 낙폭    : {metrics['Max Drawdown']:>8.2%}")
+    print(f"연간 변동성  : {metrics['Volatility']:>8.2%}")
+    print(f"승률        : {metrics['Win Rate']:>8.2%}")
 
 
 def print_backtest_results(results: dict, symbols: list):
@@ -172,7 +175,7 @@ def create_visualizations(backtester: ImmunePortfolioBacktester, symbols: list, 
         )
         save_plot(fig3, os.path.join(save_dir, "risk_metrics.png"))
         
-        print(f"시각화 저장 완료: {save_dir}")
+        print(f"Visualization completed: {save_dir}")
         
     except Exception as e:
         print(f"시각화 생성 중 오류: {str(e)}")
@@ -180,7 +183,7 @@ def create_visualizations(backtester: ImmunePortfolioBacktester, symbols: list, 
 
 def create_visualizations(results: dict, symbols: list, save_dir: str):
     """시각화 생성 및 저장"""
-    print("\n시각화 생성 중...")
+    print("\nCreating visualizations...")
     
     # 포트폴리오 플로터
     portfolio_plotter = PortfolioPlotter()
@@ -194,7 +197,7 @@ def create_visualizations(results: dict, symbols: list, save_dir: str):
     
     fig1 = portfolio_plotter.plot_portfolio_performance(
         portfolio_values, benchmark_values,
-        title="BIPD 포트폴리오 성과 vs 벤치마크"
+        title="BIPD Portfolio Performance vs Benchmark"
     )
     save_plot(fig1, os.path.join(save_dir, "portfolio_performance.png"))
     
@@ -203,14 +206,14 @@ def create_visualizations(results: dict, symbols: list, save_dir: str):
         weights_sample = results['weights_history'][::10]  # 10개씩 샘플링
         fig2 = portfolio_plotter.plot_weight_evolution(
             weights_sample, symbols,
-            title="포트폴리오 가중치 변화"
+            title="Portfolio Weight Evolution"
         )
         save_plot(fig2, os.path.join(save_dir, "weight_evolution.png"))
     
     # 낙폭 차트
     fig3 = portfolio_plotter.plot_drawdown(
         portfolio_values,
-        title="포트폴리오 낙폭 분석"
+        title="Portfolio Drawdown Analysis"
     )
     save_plot(fig3, os.path.join(save_dir, "drawdown_analysis.png"))
     
@@ -223,7 +226,7 @@ def create_visualizations(results: dict, symbols: list, save_dir: str):
     
     fig4 = immune_plotter.plot_tcell_activation(
         activation_history, crisis_history,
-        title="T-Cell 위기 감지 및 활성화"
+        title="T-Cell Crisis Detection and Activation"
     )
     save_plot(fig4, os.path.join(save_dir, "tcell_activation.png"))
     
@@ -237,7 +240,7 @@ def create_visualizations(results: dict, symbols: list, save_dir: str):
     if bcell_data:
         fig5 = immune_plotter.plot_bcell_specialization(
             bcell_data,
-            title="B-Cell 전문화 활성화 패턴"
+            title="B-Cell Specialization Activation Pattern"
         )
         save_plot(fig5, os.path.join(save_dir, "bcell_specialization.png"))
     
@@ -245,11 +248,11 @@ def create_visualizations(results: dict, symbols: list, save_dir: str):
     memory_stats = results['immune_system_stats']['memory_system']
     fig6 = immune_plotter.plot_memory_usage(
         memory_stats,
-        title="메모리 시스템 사용 현황"
+        title="Memory System Usage Status"
     )
     save_plot(fig6, os.path.join(save_dir, "memory_usage.png"))
     
-    print(f"시각화 저장 완료: {save_dir}")
+    print(f"Visualization completed: {save_dir}")
 
 
 def save_detailed_results(results: dict, bipd_system: BIPDSystem, save_dir: str):
@@ -340,42 +343,52 @@ def main():
         metrics = backtester.calculate_metrics(portfolio_returns)
         print_comprehensive_results(metrics, symbols)
         
-        # 결과 저장
-        if args.save_results:
-            save_dir = create_results_directory(args.results_dir)
+        # 결과 저장 (기본적으로 항상 저장)
+        if True:  # args.save_results:
+            # main_original 스타일로 결과 저장
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            results_dir = f"results/analysis_{timestamp}"
+            os.makedirs(results_dir, exist_ok=True)
             
-            # 종합 분석 저장
-            print("\n종합 분석 저장 중...")
-            json_path, md_path = backtester.save_comprehensive_analysis(
-                test_start, test_end
-            )
+            # 기본 백테스트 결과 저장
+            print("\n결과 저장 중...")
             
-            # HTML 대시보드 및 시각화 생성
-            print("\n대시보드 및 시각화 생성 중...")
-            json_path, md_path, html_path = backtester.save_analysis_results(
-                test_start, test_end
-            )
+            # 포트폴리오 성과 저장
+            metrics = backtester.calculate_metrics(portfolio_returns)
+            results_summary = {
+                "backtest_period": f"{test_start} ~ {test_end}",
+                "total_return": metrics["Total Return"],
+                "sharpe_ratio": metrics["Sharpe Ratio"], 
+                "max_drawdown": metrics["Max Drawdown"],
+                "volatility": metrics["Volatility"],
+                "win_rate": metrics["Win Rate"],
+                "symbols": symbols,
+                "initial_capital": args.initial_capital
+            }
             
-            # 추가 시각화
-            create_visualizations(backtester, symbols, save_dir)
+            # JSON 저장
+            import json
+            with open(f"{results_dir}/backtest_results.json", 'w') as f:
+                json.dump(results_summary, f, indent=2, default=str)
             
-            print(f"\n모든 결과가 저장되었습니다:")
-            print(f"- JSON 분석: {json_path}")
-            print(f"- 마크다운 보고서: {md_path}")
-            print(f"- HTML 대시보드: {html_path}")
-            print(f"- 시각화: {save_dir}")
+            # CSV 저장 (포트폴리오 수익률)
+            portfolio_returns.to_csv(f"{results_dir}/portfolio_returns.csv")
+            
+            print(f"\n결과 저장 완료: {results_dir}")
+            print(f"- 백테스트 결과: {results_dir}/backtest_results.json")
+            print(f"- 포트폴리오 수익률: {results_dir}/portfolio_returns.csv")
         
         # 최신 의사결정 설명 출력
-        print("\n" + "=" * 50)
+        print("\n" + "=" * 30)
         print("최신 의사결정 설명")
-        print("=" * 50)
+        print("=" * 30)
         
         if immune_system:
             explanation = immune_system.get_latest_explanation()
             if 'error' not in explanation:
-                print(f"시점: {explanation['timestamp']}")
-                print(f"위기 분석: {explanation['crisis_analysis']['decision_reasoning']}")
-                print(f"시스템 판단: {explanation['system_reasoning']}")
+                print(f"시점        : {explanation['timestamp']}")
+                print(f"위기 분석   : {explanation['crisis_analysis']['decision_reasoning']}")
+                print(f"시스템 판단 : {explanation['system_reasoning']}")
                 
                 # 활성화된 전문 전략 출력
                 active_strategies = []
@@ -387,15 +400,18 @@ def main():
                     print(f"활성화된 전문 전략: {', '.join(active_strategies)}")
                 
                 # 메모리 활용
-                if explanation['memory_analysis']:
+                if explanation.get('memory_analysis'):
                     memory_info = explanation['memory_analysis']
-                    print(f"메모리 활용: 유사도 {memory_info['similarity']:.3f}의 과거 경험 활용")
+                    if memory_info and 'similarity' in memory_info:
+                        print(f"메모리 활용: 유사도 {memory_info['similarity']:.3f}의 과거 경험 활용")
+                    else:
+                        print("메모리 활용: 없음")
         
         # 다중 실행 안정성 검증 (선택사항)
         if args.verbose:
-            print("\n" + "=" * 50)
+            print("\n" + "=" * 30)
             print("다중 실행 안정성 검증")
-            print("=" * 50)
+            print("=" * 30)
             
             multiple_results = backtester.run_multiple_backtests(
                 n_runs=3,
@@ -411,9 +427,9 @@ def main():
             print(f"평균 샤프 비율: {summary_stats.get('Sharpe Ratio_mean', 0):.3f} ± {summary_stats.get('Sharpe Ratio_std', 0):.3f}")
             print(f"평균 최대 낙폭: {summary_stats.get('Max Drawdown_mean', 0):.2%} ± {summary_stats.get('Max Drawdown_std', 0):.2%}")
         
-        print("\n" + "=" * 60)
+        print("\n" + "=" * 50)
         print("BIPD 시스템 실행 완료")
-        print("=" * 60)
+        print("=" * 50)
         
     except Exception as e:
         print(f"\n오류 발생: {str(e)}")

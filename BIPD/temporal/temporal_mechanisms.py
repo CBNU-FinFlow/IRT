@@ -61,6 +61,28 @@ class AdaptiveTimeWindowManager:
         # 계절성 패턴 추적
         self.seasonal_patterns = {}
         self.cycle_detector = CyclicalPatternDetector()
+        self.is_initialized = False
+        
+    def initialize(self, market_data):
+        """
+        시간 윈도우 관리자 초기화
+        """
+        if isinstance(market_data, np.ndarray):
+            market_data = pd.DataFrame(market_data)
+        
+        # 초기 변동성 히스토리 계산
+        if len(market_data) > 1:
+            returns = market_data.pct_change().dropna()
+            initial_volatility = returns.std().mean()
+            self.volatility_history.append(initial_volatility)
+            
+            # 초기 윈도우 설정
+            initial_window = self.calculate_adaptive_window(
+                market_data, initial_volatility
+            )
+            self.window_history.append(initial_window)
+        
+        self.is_initialized = True
         
     def calculate_adaptive_window(self, 
                                 market_data: pd.DataFrame,
@@ -127,16 +149,27 @@ class AdaptiveTimeWindowManager:
         if len(market_data) < 252:
             return 1.0
         
-        # 현재 월 추출
-        current_month = market_data.index[-1].month
+        # 현재 월 추출 (날짜 인덱스인 경우만)
+        try:
+            if hasattr(market_data.index[-1], 'month'):
+                current_month = market_data.index[-1].month
+            else:
+                # 날짜 인덱스가 아닌 경우 기본값 반환
+                return 1.0
+        except (AttributeError, IndexError):
+            return 1.0
         
         # 월별 변동성 패턴 분석
         monthly_volatilities = {}
-        for month in range(1, 13):
-            month_data = market_data[market_data.index.month == month]
-            if len(month_data) > 10:
-                monthly_vol = month_data.pct_change().std().mean()
-                monthly_volatilities[month] = monthly_vol
+        try:
+            for month in range(1, 13):
+                month_data = market_data[market_data.index.month == month]
+                if len(month_data) > 10:
+                    monthly_vol = month_data.pct_change().std().mean()
+                    monthly_volatilities[month] = monthly_vol
+        except AttributeError:
+            # 날짜 인덱스가 아닌 경우 기본값 반환
+            return 1.0
         
         if current_month in monthly_volatilities and len(monthly_volatilities) > 6:
             current_vol = monthly_volatilities[current_month]
@@ -191,6 +224,18 @@ class CyclicalPatternDetector:
     def __init__(self):
         self.cycle_history = deque(maxlen=1000)
         self.detected_cycles = {}
+        self.is_fitted = False
+        
+    def fit(self, market_data):
+        """
+        패턴 감지기 학습 (sklearn 스타일 인터페이스)
+        """
+        if isinstance(market_data, np.ndarray):
+            market_data = pd.DataFrame(market_data)
+        
+        # 초기 패턴 감지 수행
+        self.detect_cycles(market_data)
+        self.is_fitted = True
         
     def detect_cycles(self, market_data: pd.DataFrame) -> Dict:
         """
@@ -450,6 +495,13 @@ class TemporalStateEncoder:
         self.hidden_dim = hidden_dim
         self.num_scales = num_scales
         
+        if not TORCH_AVAILABLE:
+            # PyTorch가 없으면 단순 numpy 구현 사용
+            self.use_torch = False
+            print("PyTorch 없음: TemporalStateEncoder는 단순 모드로 실행됩니다.")
+            return
+            
+        self.use_torch = True
         # 다중 스케일 LSTM
         self.lstm_layers = nn.ModuleList([
             nn.LSTM(input_dim, hidden_dim, batch_first=True)

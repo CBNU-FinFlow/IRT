@@ -1,1 +1,1 @@
-__all__ = ['RiskManager', 'SafeCalculations']
+__all__ = ['RiskManager', 'Calculations']

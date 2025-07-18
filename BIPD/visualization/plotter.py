@@ -14,8 +14,8 @@ import warnings
 
 warnings.filterwarnings("ignore")
 
-# 한글 폰트 설정
-plt.rcParams['font.family'] = 'AppleGothic'
+# 폰트 설정
+plt.rcParams['font.family'] = 'DejaVu Sans'
 plt.rcParams['axes.unicode_minus'] = False
 
 # 색상 팔레트 설정
@@ -49,7 +49,7 @@ class PortfolioPlotter:
                                  portfolio_values: np.ndarray,
                                  benchmark_values: np.ndarray = None,
                                  dates: List[str] = None,
-                                 title: str = "포트폴리오 성과") -> plt.Figure:
+                                 title: str = "Portfolio Performance") -> plt.Figure:
         """
         포트폴리오 성과 시각화
         
@@ -70,23 +70,23 @@ class PortfolioPlotter:
         
         # 포트폴리오 성과 플롯
         ax.plot(dates, portfolio_values, 
-               color=COLORS['primary'], linewidth=2, label='BIPD 포트폴리오')
+               color=COLORS['primary'], linewidth=2, label='BIPD Portfolio')
         
         # 벤치마크 플롯
         if benchmark_values is not None:
             ax.plot(dates, benchmark_values, 
                    color=COLORS['secondary'], linewidth=2, 
-                   linestyle='--', label='벤치마크')
+                   linestyle='--', label='Benchmark')
         
         ax.set_title(title, fontsize=16, fontweight='bold')
-        ax.set_xlabel('날짜', fontsize=12)
-        ax.set_ylabel('포트폴리오 가치', fontsize=12)
+        ax.set_xlabel('Date', fontsize=12)
+        ax.set_ylabel('Portfolio Value', fontsize=12)
         ax.legend()
         ax.grid(True, alpha=0.3)
         
         # 성과 통계 텍스트 박스
         total_return = (portfolio_values[-1] / portfolio_values[0] - 1) * 100
-        ax.text(0.02, 0.98, f'총 수익률: {total_return:.2f}%', 
+        ax.text(0.02, 0.98, f'Total Return: {total_return:.2f}%', 
                transform=ax.transAxes, fontsize=10,
                bbox=dict(boxstyle="round", facecolor='wheat', alpha=0.8),
                verticalalignment='top')
@@ -98,7 +98,7 @@ class PortfolioPlotter:
                             weights_history: List[np.ndarray],
                             asset_names: List[str],
                             dates: List[str] = None,
-                            title: str = "포트폴리오 가중치 변화") -> plt.Figure:
+                            title: str = "Portfolio Weight Evolution") -> plt.Figure:
         """
         포트폴리오 가중치 변화 시각화
         
@@ -124,8 +124,8 @@ class PortfolioPlotter:
                     labels=asset_names, alpha=0.7)
         
         ax.set_title(title, fontsize=16, fontweight='bold')
-        ax.set_xlabel('날짜', fontsize=12)
-        ax.set_ylabel('가중치', fontsize=12)
+        ax.set_xlabel('Date', fontsize=12)
+        ax.set_ylabel('Weight', fontsize=12)
         ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
         ax.grid(True, alpha=0.3)
         
@@ -135,7 +135,7 @@ class PortfolioPlotter:
     def plot_drawdown(self, 
                      portfolio_values: np.ndarray,
                      dates: List[str] = None,
-                     title: str = "최대 낙폭 (Drawdown)") -> plt.Figure:
+                     title: str = "Maximum Drawdown Analysis") -> plt.Figure:
         """
         최대 낙폭 시각화
         
@@ -161,18 +161,18 @@ class PortfolioPlotter:
         # 포트폴리오 가치 플롯
         ax1.plot(dates, portfolio_values, color=COLORS['primary'], linewidth=2)
         ax1.set_title(title, fontsize=16, fontweight='bold')
-        ax1.set_ylabel('포트폴리오 가치', fontsize=12)
+        ax1.set_ylabel('Portfolio Value', fontsize=12)
         ax1.grid(True, alpha=0.3)
         
         # 낙폭 플롯
         ax2.fill_between(dates, drawdown, 0, color=COLORS['warning'], alpha=0.7)
-        ax2.set_xlabel('날짜', fontsize=12)
-        ax2.set_ylabel('낙폭 (%)', fontsize=12)
+        ax2.set_xlabel('Date', fontsize=12)
+        ax2.set_ylabel('Drawdown (%)', fontsize=12)
         ax2.grid(True, alpha=0.3)
         
         # 최대 낙폭 표시
         max_dd = np.min(drawdown)
-        ax2.text(0.02, 0.02, f'최대 낙폭: {max_dd:.2%}', 
+        ax2.text(0.02, 0.02, f'Max Drawdown: {max_dd:.2%}', 
                 transform=ax2.transAxes, fontsize=10,
                 bbox=dict(boxstyle="round", facecolor='wheat', alpha=0.8))
         
@@ -181,7 +181,7 @@ class PortfolioPlotter:
     
     def plot_risk_metrics(self, 
                          risk_metrics: Dict[str, float],
-                         title: str = "리스크 메트릭") -> plt.Figure:
+                         title: str = "Risk Metrics") -> plt.Figure:
         """
         리스크 메트릭 시각화
         
@@ -195,10 +195,10 @@ class PortfolioPlotter:
         fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=self.figsize)
         
         # 변동성
-        ax1.bar(['변동성'], [risk_metrics.get('volatility', 0)], 
+        ax1.bar(['Volatility'], [risk_metrics.get('volatility', 0)], 
                color=COLORS['warning'])
-        ax1.set_title('연간 변동성', fontweight='bold')
-        ax1.set_ylabel('변동성 (%)')
+        ax1.set_title('Annual Volatility', fontweight='bold')
+        ax1.set_ylabel('Volatility (%)')
         
         # VaR
         var_95 = risk_metrics.get('var_95', 0)
@@ -209,16 +209,16 @@ class PortfolioPlotter:
         ax2.set_ylabel('VaR (%)')
         
         # 샤프 비율
-        ax3.bar(['샤프 비율'], [risk_metrics.get('sharpe_ratio', 0)], 
+        ax3.bar(['Sharpe Ratio'], [risk_metrics.get('sharpe_ratio', 0)], 
                color=COLORS['success'])
-        ax3.set_title('샤프 비율', fontweight='bold')
-        ax3.set_ylabel('비율')
+        ax3.set_title('Sharpe Ratio', fontweight='bold')
+        ax3.set_ylabel('Ratio')
         
         # 집중도 리스크
-        ax4.bar(['집중도'], [risk_metrics.get('concentration_risk', 0)], 
+        ax4.bar(['Concentration'], [risk_metrics.get('concentration_risk', 0)], 
                color=COLORS['secondary'])
-        ax4.set_title('집중도 리스크 (HHI)', fontweight='bold')
-        ax4.set_ylabel('집중도')
+        ax4.set_title('Concentration Risk (HHI)', fontweight='bold')
+        ax4.set_ylabel('Concentration')
         
         plt.suptitle(title, fontsize=16, fontweight='bold')
         plt.tight_layout()
@@ -241,7 +241,7 @@ class ImmuneSystemPlotter:
                             activation_history: List[float],
                             crisis_levels: List[float],
                             dates: List[str] = None,
-                            title: str = "T-Cell 활성화 상태") -> plt.Figure:
+                            title: str = "T-Cell Activation Status") -> plt.Figure:
         """
         T-Cell 활성화 상태 시각화
         
@@ -262,19 +262,19 @@ class ImmuneSystemPlotter:
         
         # 활성화 수준 플롯
         ax.plot(dates, activation_history, 
-               color=COLORS['tcell'], linewidth=2, label='T-Cell 활성화')
+               color=COLORS['tcell'], linewidth=2, label='T-Cell Activation')
         
         # 위기 수준 플롯
         ax.plot(dates, crisis_levels, 
                color=COLORS['crisis'], linewidth=2, 
-               linestyle='--', label='위기 수준')
+               linestyle='--', label='Crisis Level')
         
         # 임계값 선
-        ax.axhline(y=0.15, color='red', linestyle=':', alpha=0.7, label='활성화 임계값')
+        ax.axhline(y=0.15, color='red', linestyle=':', alpha=0.7, label='Activation Threshold')
         
         ax.set_title(title, fontsize=16, fontweight='bold')
-        ax.set_xlabel('날짜', fontsize=12)
-        ax.set_ylabel('활성화 수준', fontsize=12)
+        ax.set_xlabel('Date', fontsize=12)
+        ax.set_ylabel('Activation Level', fontsize=12)
         ax.legend()
         ax.grid(True, alpha=0.3)
         
@@ -284,7 +284,7 @@ class ImmuneSystemPlotter:
     def plot_bcell_specialization(self, 
                                 bcell_activations: Dict[str, List[float]],
                                 dates: List[str] = None,
-                                title: str = "B-Cell 전문화 활성화") -> plt.Figure:
+                                title: str = "B-Cell Specialization Activation") -> plt.Figure:
         """
         B-Cell 전문화 활성화 시각화
         
@@ -308,8 +308,8 @@ class ImmuneSystemPlotter:
                    label=f'{specialty} B-Cell')
         
         ax.set_title(title, fontsize=16, fontweight='bold')
-        ax.set_xlabel('날짜', fontsize=12)
-        ax.set_ylabel('활성화 강도', fontsize=12)
+        ax.set_xlabel('Date', fontsize=12)
+        ax.set_ylabel('Activation Strength', fontsize=12)
         ax.legend()
         ax.grid(True, alpha=0.3)
         
@@ -318,7 +318,7 @@ class ImmuneSystemPlotter:
     
     def plot_memory_usage(self, 
                          memory_stats: Dict[str, Any],
-                         title: str = "메모리 시스템 사용 현황") -> plt.Figure:
+                         title: str = "Memory System Usage Status") -> plt.Figure:
         """
         메모리 시스템 사용 현황 시각화
         
@@ -334,33 +334,33 @@ class ImmuneSystemPlotter:
         # 메모리 사용률
         utilization = memory_stats.get('memory_utilization', 0)
         ax1.pie([utilization, 1-utilization], 
-               labels=['사용됨', '사용 가능'], 
+               labels=['Used', 'Available'], 
                colors=[COLORS['memory'], COLORS['info']],
                autopct='%1.1f%%', startangle=90)
-        ax1.set_title('메모리 사용률', fontweight='bold')
+        ax1.set_title('Memory Utilization', fontweight='bold')
         
         # 회상 성공률
         match_rate = memory_stats.get('match_rate', 0)
-        ax2.bar(['회상 성공률'], [match_rate], 
+        ax2.bar(['Recall Success Rate'], [match_rate], 
                color=COLORS['success'])
-        ax2.set_title('회상 성공률', fontweight='bold')
-        ax2.set_ylabel('성공률 (%)')
+        ax2.set_title('Recall Success Rate', fontweight='bold')
+        ax2.set_ylabel('Success Rate (%)')
         ax2.set_ylim(0, 1)
         
         # 성공/실패 패턴
         success_count = memory_stats.get('success_patterns', 0)
         failure_count = memory_stats.get('failure_patterns', 0)
-        ax3.bar(['성공 패턴', '실패 패턴'], [success_count, failure_count], 
+        ax3.bar(['Success Patterns', 'Failure Patterns'], [success_count, failure_count], 
                color=[COLORS['success'], COLORS['warning']])
-        ax3.set_title('저장된 패턴', fontweight='bold')
-        ax3.set_ylabel('패턴 수')
+        ax3.set_title('Stored Patterns', fontweight='bold')
+        ax3.set_ylabel('Pattern Count')
         
         # 평균 성과
         avg_performance = memory_stats.get('avg_performance', 0)
-        ax4.bar(['평균 성과'], [avg_performance], 
+        ax4.bar(['Average Performance'], [avg_performance], 
                color=COLORS['primary'])
-        ax4.set_title('평균 성과', fontweight='bold')
-        ax4.set_ylabel('성과 (%)')
+        ax4.set_title('Average Performance', fontweight='bold')
+        ax4.set_ylabel('Performance (%)')
         
         plt.suptitle(title, fontsize=16, fontweight='bold')
         plt.tight_layout()
@@ -368,7 +368,7 @@ class ImmuneSystemPlotter:
     
     def plot_immune_system_overview(self, 
                                    system_stats: Dict[str, Any],
-                                   title: str = "면역 시스템 종합 현황") -> plt.Figure:
+                                   title: str = "Immune System Overview") -> plt.Figure:
         """
         면역 시스템 종합 현황 시각화
         
@@ -387,8 +387,8 @@ class ImmuneSystemPlotter:
         tcell_activation = system_stats.get('tcell_activation', 0)
         colors = [COLORS['crisis'] if tcell_activation > 0.5 else COLORS['normal']]
         ax1.bar(['T-Cell'], [tcell_activation], color=colors)
-        ax1.set_title('T-Cell 활성화', fontweight='bold')
-        ax1.set_ylabel('활성화 수준')
+        ax1.set_title('T-Cell Activation', fontweight='bold')
+        ax1.set_ylabel('Activation Level')
         ax1.set_ylim(0, 1)
         
         # B-Cell 활성화
@@ -398,8 +398,8 @@ class ImmuneSystemPlotter:
             specialties = list(bcell_data.keys())
             activations = list(bcell_data.values())
             ax2.bar(specialties, activations, color=COLORS['bcell'])
-            ax2.set_title('B-Cell 전문화', fontweight='bold')
-            ax2.set_ylabel('활성화 강도')
+            ax2.set_title('B-Cell Specialization', fontweight='bold')
+            ax2.set_ylabel('Activation Strength')
             ax2.tick_params(axis='x', rotation=45)
         
         # 메모리 사용률
@@ -408,7 +408,7 @@ class ImmuneSystemPlotter:
         ax3.pie([memory_utilization, 1-memory_utilization], 
                colors=[COLORS['memory'], COLORS['info']],
                autopct='%1.1f%%', startangle=90)
-        ax3.set_title('메모리 사용률', fontweight='bold')
+        ax3.set_title('Memory Utilization', fontweight='bold')
         
         # 위기 수준 히스토리
         ax4 = fig.add_subplot(gs[1, :])
@@ -417,9 +417,9 @@ class ImmuneSystemPlotter:
             dates = range(len(crisis_history))
             ax4.plot(dates, crisis_history, color=COLORS['crisis'], linewidth=2)
             ax4.fill_between(dates, crisis_history, alpha=0.3, color=COLORS['crisis'])
-            ax4.set_title('위기 수준 히스토리', fontweight='bold')
-            ax4.set_xlabel('시간')
-            ax4.set_ylabel('위기 수준')
+            ax4.set_title('Crisis Level History', fontweight='bold')
+            ax4.set_xlabel('Time')
+            ax4.set_ylabel('Crisis Level')
             ax4.grid(True, alpha=0.3)
         
         # 성과 분포
@@ -427,9 +427,9 @@ class ImmuneSystemPlotter:
         performance_history = system_stats.get('performance_history', [])
         if performance_history:
             ax5.hist(performance_history, bins=20, color=COLORS['primary'], alpha=0.7)
-            ax5.set_title('성과 분포', fontweight='bold')
-            ax5.set_xlabel('수익률')
-            ax5.set_ylabel('빈도')
+            ax5.set_title('Performance Distribution', fontweight='bold')
+            ax5.set_xlabel('Return')
+            ax5.set_ylabel('Frequency')
         
         # 리스크 메트릭
         ax6 = fig.add_subplot(gs[2, 1])
@@ -442,16 +442,16 @@ class ImmuneSystemPlotter:
                 abs(risk_metrics.get('max_drawdown', 0))
             ]
             ax6.bar(metrics, values, color=[COLORS['warning'], COLORS['success'], COLORS['crisis']])
-            ax6.set_title('리스크 메트릭', fontweight='bold')
+            ax6.set_title('Risk Metrics', fontweight='bold')
             ax6.tick_params(axis='x', rotation=45)
         
         # 시스템 건강도
         ax7 = fig.add_subplot(gs[2, 2])
         health_score = system_stats.get('system_health', 0.5)
         colors = ['red' if health_score < 0.3 else 'yellow' if health_score < 0.7 else 'green']
-        ax7.bar(['건강도'], [health_score], color=colors)
-        ax7.set_title('시스템 건강도', fontweight='bold')
-        ax7.set_ylabel('건강도')
+        ax7.bar(['Health Score'], [health_score], color=colors)
+        ax7.set_title('System Health', fontweight='bold')
+        ax7.set_ylabel('Health Score')
         ax7.set_ylim(0, 1)
         
         plt.suptitle(title, fontsize=18, fontweight='bold')

@@ -79,7 +79,7 @@ class ImmuneSystemVisualizer:
 
     def _plot_tcell_activation_pattern(self, ax, data: Dict):
         """T-Cell 활성화 패턴 시각화"""
-        ax.set_title("T-Cell 위기 감지 활성화 패턴", fontweight="bold")
+        ax.set_title("T-Cell Crisis Detection Activation Pattern", fontweight="bold")
 
         # 시뮬레이션 데이터 생성 (실제 데이터로 교체 가능)
         time_points = np.linspace(0, 100, 100)
@@ -104,7 +104,7 @@ class ImmuneSystemVisualizer:
             crisis_activation,
             alpha=0.3,
             color=self.colors["tcell"],
-            label="T-Cell 활성화",
+            label="T-Cell Activation",
         )
         ax.plot(time_points, crisis_activation, color=self.colors["tcell"], linewidth=2)
 
@@ -114,7 +114,7 @@ class ImmuneSystemVisualizer:
             color=self.colors["crisis"],
             linestyle="--",
             alpha=0.7,
-            label="위기 임계값",
+            label="Crisis Threshold",
         )
 
         # 위기 구간 강조
@@ -122,8 +122,8 @@ class ImmuneSystemVisualizer:
         for start, end in crisis_zones:
             ax.axvspan(start, end, alpha=0.2, color=self.colors["crisis"])
 
-        ax.set_xlabel("시간")
-        ax.set_ylabel("활성화 수준")
+        ax.set_xlabel("Time")
+        ax.set_ylabel("Activation Level")
         ax.legend()
         ax.grid(True, alpha=0.3)
 

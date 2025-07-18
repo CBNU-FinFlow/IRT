@@ -274,42 +274,116 @@ class RiskManager:
         }
 
 
-class SafeCalculations:
+class Calculations:
     """
-    안전한 수치 계산을 위한 유틸리티 클래스
+    수치 계산을 위한 유틸리티 클래스
     """
     
     @staticmethod
-    def safe_divide(numerator: float, denominator: float, default: float = 0.0) -> float:
-        """안전한 나눗셈"""
+    def divide(numerator: float, denominator: float, default: float = 0.0) -> float:
+        """나눗셈"""
         if abs(denominator) < 1e-10:
             return default
         return numerator / denominator
     
     @staticmethod
-    def safe_log(value: float, default: float = 0.0) -> float:
-        """안전한 로그 계산"""
+    def log(value: float, default: float = 0.0) -> float:
+        """로그 계산"""
         if value <= 0:
             return default
         return np.log(value)
     
     @staticmethod
-    def safe_sqrt(value: float, default: float = 0.0) -> float:
-        """안전한 제곱근 계산"""
+    def sqrt(value: float, default: float = 0.0) -> float:
+        """제곱근 계산"""
         if value < 0:
             return default
         return np.sqrt(value)
     
     @staticmethod
-    def safe_normalize(array: np.ndarray, default_value: float = 0.0) -> np.ndarray:
-        """안전한 정규화"""
+    def normalize(array: np.ndarray, default_value: float = 0.0) -> np.ndarray:
+        """정규화"""
         if np.sum(array) == 0:
             return np.full_like(array, default_value)
         return array / np.sum(array)
     
     @staticmethod
-    def safe_correlation(x: np.ndarray, y: np.ndarray, default: float = 0.0) -> float:
-        """안전한 상관계수 계산"""
+    def mean(x):
+        """평균 계산"""
+        if len(x) == 0 or x.isnull().all():
+            return 0.0
+        return x.mean() if not np.isnan(x.mean()) else 0.0
+    
+    @staticmethod
+    def std(x):
+        """표준편차 계산"""
+        if len(x) == 0 or x.isnull().all():
+            return 0.0
+        return x.std() if not np.isnan(x.std()) else 0.0
+    
+    @staticmethod
+    def corr(x):
+        """상관계수 계산"""
+        try:
+            if len(x) <= 1 or x.isnull().all().all():
+                return 0.0
+            corr_matrix = np.corrcoef(x.T)
+            if np.isnan(corr_matrix).any():
+                return 0.0
+            return np.mean(corr_matrix[~np.eye(corr_matrix.shape[0], dtype=bool)])
+        except:
+            return 0.0
+    
+    @staticmethod
+    def momentum(x):
+        """모멘텀 계산"""
+        try:
+            if len(x) < 5:
+                return 0.0
+            momentum = x.iloc[-1] / x.iloc[-5] - 1
+            return momentum.mean() if not np.isnan(momentum.mean()) else 0.0
+        except:
+            return 0.0
+    
+    @staticmethod
+    def skew(x):
+        """왜도 계산"""
+        try:
+            skew_vals = x.skew()
+            if skew_vals.isnull().all():
+                return 0.0
+            return skew_vals.mean() if not np.isnan(skew_vals.mean()) else 0.0
+        except:
+            return 0.0
+    
+    @staticmethod
+    def kurtosis(x):
+        """첨도 계산"""
+        try:
+            kurt_vals = x.kurtosis()
+            if kurt_vals.isnull().all():
+                return 0.0
+            return kurt_vals.mean() if not np.isnan(kurt_vals.mean()) else 0.0
+        except:
+            return 0.0
+    
+    @staticmethod
+    def trend(x):
+        """트렌드 계산"""
+        try:
+            if len(x) < 2:
+                return 0.0
+            # 단순 선형 회귀 기울기
+            n = len(x)
+            x_vals = np.arange(n)
+            slope = (n * np.sum(x_vals * x) - np.sum(x_vals) * np.sum(x)) / (n * np.sum(x_vals**2) - np.sum(x_vals)**2)
+            return slope if not np.isnan(slope) else 0.0
+        except:
+            return 0.0
+    
+    @staticmethod
+    def correlation(x: np.ndarray, y: np.ndarray, default: float = 0.0) -> float:
+        """상관계수 계산"""
         if len(x) != len(y) or len(x) < 2:
             return default
         
@@ -320,8 +394,8 @@ class SafeCalculations:
             return default
     
     @staticmethod
-    def safe_volatility(returns: np.ndarray, default: float = 0.02) -> float:
-        """안전한 변동성 계산"""
+    def volatility(returns: np.ndarray, default: float = 0.02) -> float:
+        """변동성 계산"""
         if len(returns) < 2:
             return default
         

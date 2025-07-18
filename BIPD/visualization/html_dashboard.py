@@ -32,7 +32,7 @@ class HTMLDashboardGenerator:
         with open(output_path, 'w', encoding='utf-8') as f:
             f.write(html_content)
         
-        print(f"HTML 대시보드가 생성되었습니다: {output_path}")
+        print(f"HTML dashboard generated: {output_path}")
         return output_path
     
     def _process_analysis_data(self, report: Dict) -> Dict:
@@ -219,7 +219,7 @@ class HTMLDashboardGenerator:
 <body>
     <div class="container">
         <header>
-            <h1>🧬 BIPD 면역 시스템 분석 대시보드</h1>
+            <h1>BIPD 면역 시스템 분석 대시보드</h1>
             <p>기간: {data['period'].get('start', '')} ~ {data['period'].get('end', '')}</p>
         </header>
         
@@ -230,31 +230,31 @@ class HTMLDashboardGenerator:
         <div class="main-content">
             <div class="left-panel">
                 <section class="tcell-section">
-                    <h2>🔍 T-Cell 위기 감지 분석</h2>
+                    <h2>T-Cell 위기 감지 분석</h2>
                     {self._generate_tcell_section(data)}
                 </section>
                 
                 <section class="bcell-section">
-                    <h2>🎯 B-Cell 전문가 판단</h2>
+                    <h2>B-Cell 전문가 판단</h2>
                     {self._generate_bcell_section(data)}
                 </section>
             </div>
             
             <div class="right-panel">
                 <section class="feature-section">
-                    <h2>📊 특성 중요도 분석</h2>
+                    <h2>특성 중요도 분석</h2>
                     {self._generate_feature_section(data)}
                 </section>
                 
                 <section class="xai-section">
-                    <h2>🤖 XAI 설명</h2>
+                    <h2>XAI 설명</h2>
                     {self._generate_xai_section(data)}
                 </section>
             </div>
         </div>
         
         <section class="temporal-section">
-            <h2>⏰ 시간별 패턴 분석</h2>
+            <h2>시간별 패턴 분석</h2>
             {self._generate_temporal_section(data)}
         </section>
     </div>

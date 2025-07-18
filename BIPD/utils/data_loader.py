@@ -360,7 +360,7 @@ def clean_data(data: pd.DataFrame) -> pd.DataFrame:
     data = data.replace([np.inf, -np.inf], np.nan)
 
     # 결측값 처리
-    data = data.fillna(method="ffill").fillna(method="bfill")
+    data = data.ffill().bfill()
 
     # 여전히 NaN인 값은 0으로 처리
     data = data.fillna(0)
@@ -406,11 +406,11 @@ def process_raw_data(raw_data: pd.DataFrame, symbols: List[str]) -> pd.DataFrame
                         processed_data[symbol] = raw_data[symbol]
 
         # 결측값 처리
-        processed_data = processed_data.fillna(method="ffill").fillna(method="bfill")
+        processed_data = processed_data.ffill().bfill()
 
         # 무한값 제거
         processed_data = processed_data.replace([np.inf, -np.inf], np.nan)
-        processed_data = processed_data.fillna(method="ffill").fillna(method="bfill")
+        processed_data = processed_data.ffill().bfill()
 
         # 최소 데이터 길이 확인
         if len(processed_data) < 100:
@@ -444,50 +444,6 @@ def calculate_returns(prices: pd.DataFrame, method: str = "simple") -> pd.DataFr
         returns = prices.pct_change()
 
     return returns.dropna()
-
-
-def calculate_technical_indicators(
-    prices: pd.DataFrame, window: int = 20
-) -> pd.DataFrame:
-    """
-    기술적 지표 계산
-
-    Args:
-        prices: 가격 데이터
-        window: 계산 윈도우
-
-    Returns:
-        기술적 지표 DataFrame
-    """
-    indicators = pd.DataFrame(index=prices.index)
-
-    for symbol in prices.columns:
-        price_series = prices[symbol]
-
-        # 이동평균
-        indicators[f"{symbol}_SMA"] = price_series.rolling(window).mean()
-
-        # RSI
-        delta = price_series.diff()
-        gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
-        loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
-        rs = gain / loss
-        indicators[f"{symbol}_RSI"] = 100 - (100 / (1 + rs))
-
-        # 볼린저 밴드
-        sma = price_series.rolling(window).mean()
-        std = price_series.rolling(window).std()
-        indicators[f"{symbol}_BB_Upper"] = sma + (std * 2)
-        indicators[f"{symbol}_BB_Lower"] = sma - (std * 2)
-        indicators[f"{symbol}_BB_Position"] = (
-            price_series - indicators[f"{symbol}_BB_Lower"]
-        ) / (indicators[f"{symbol}_BB_Upper"] - indicators[f"{symbol}_BB_Lower"])
-
-        # 변동성
-        returns = price_series.pct_change()
-        indicators[f"{symbol}_Volatility"] = returns.rolling(window).std()
-
-    return indicators.fillna(method="ffill").fillna(0)
 
 
 def extract_market_features(
@@ -548,7 +504,7 @@ def extract_market_features(
         features["trend"] = np.nanmean(current_prices / sma_values, axis=1)
 
     # 결측값 처리
-    features = features.fillna(method="ffill").fillna(0)
+    features = features.ffill().fillna(0)
 
     return features
 
@@ -580,9 +536,9 @@ def get_default_symbols() -> List[str]:
         "MSFT",
         "AMZN",
         "GOOGL",
-        "AMD",
+        "TSLA",
         "META",
-        "NVDA",
+        "AMD",
         "NFLX",
         "ADBE",
         "CRM",

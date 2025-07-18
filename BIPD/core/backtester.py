@@ -67,38 +67,39 @@ class ImmunePortfolioBacktester:
         """
         데이터 로드 및 전처리
         """
-        print("데이터 로딩 및 전처리 시작...")
-        
-        try:
-            # 데이터 다운로드 (data/ 폴더에 저장)
-            self.data = download_market_data(
-                symbols=self.symbols,
-                start_date=self.train_start,
-                end_date=self.test_end,
-                cache_dir="data"
-            )
-            
-            # 데이터 분할
-            self.train_data = self.data["prices"][self.train_start:self.train_end]
-            self.test_data = self.data["prices"][self.test_start:self.test_end]
-            self.train_features = self.data["features"][self.train_start:self.train_end]
-            self.test_features = self.data["features"][self.test_start:self.test_end]
-            
-            # 데이터 정리
-            self.train_data = self._clean_data(self.train_data)
-            self.test_data = self._clean_data(self.test_data)
-            self.train_features = self._clean_data(self.train_features)
-            self.test_features = self._clean_data(self.test_features)
-            
-            print(f"데이터 로딩 완료:")
-            print(f"- 훈련 데이터: {self.train_data.shape}")
-            print(f"- 테스트 데이터: {self.test_data.shape}")
-            print(f"- 훈련 특성: {self.train_features.shape}")
-            print(f"- 테스트 특성: {self.test_features.shape}")
-            
-        except Exception as e:
-            print(f"데이터 로딩 실패: {str(e)}")
-            raise
+        with tqdm(total=1, desc="Data Loading and Preprocessing", 
+                  bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt}") as pbar:
+            try:
+                # 데이터 다운로드 (data/ 폴더에 저장)
+                self.data = download_market_data(
+                    symbols=self.symbols,
+                    start_date=self.train_start,
+                    end_date=self.test_end,
+                    cache_dir="data"
+                )
+                
+                # 데이터 분할
+                self.train_data = self.data["prices"][self.train_start:self.train_end]
+                self.test_data = self.data["prices"][self.test_start:self.test_end]
+                self.train_features = self.data["features"][self.train_start:self.train_end]
+                self.test_features = self.data["features"][self.test_start:self.test_end]
+                
+                # 데이터 정리
+                self.train_data = self._clean_data(self.train_data)
+                self.test_data = self._clean_data(self.test_data)
+                self.train_features = self._clean_data(self.train_features)
+                self.test_features = self._clean_data(self.test_features)
+                
+                pbar.set_postfix({
+                    'Train': f'{self.train_data.shape[0]}d',
+                    'Test': f'{self.test_data.shape[0]}d',
+                    'Features': f'{self.train_features.shape[1]}f'
+                })
+                pbar.update(1)
+                
+            except Exception as e:
+                pbar.set_postfix({'Error': str(e)[:30]})
+                raise
     
     def _clean_data(self, data: pd.DataFrame) -> pd.DataFrame:
         """데이터 정리"""
@@ -120,35 +121,36 @@ class ImmunePortfolioBacktester:
         Args:
             seed: 랜덤 시드
         """
-        print("BIPD 시스템 초기화 중...")
-        
-        # 시드 설정
-        np.random.seed(seed)
-        
-        # BIPD 시스템 초기화
-        self.bipd_system = BIPDSystem(
-            symbols=self.symbols,
-            initial_capital=self.initial_capital,
-            lookback_window=252,
-            rebalance_frequency=5
-        )
-        
-        # 의사결정 분석기 초기화
-        self.decision_analyzer = DecisionAnalyzer(
-            output_dir=os.path.join(self.results_dir, "decision_analysis")
-        )
-        
-        # 데이터 로딩 (시스템 내부)
-        if self.data is None:
-            self.load_data()
-        
-        # 시스템에 데이터 설정
-        self.bipd_system.price_data = self.data["prices"]
-        self.bipd_system.returns_data = self.data["prices"].pct_change().dropna()
-        self.bipd_system.technical_indicators = self.data["features"]
-        self.bipd_system.market_features = self.data["features"]
-        
-        print("BIPD 시스템 초기화 완료")
+        with tqdm(total=1, desc="BIPD System Initialization", 
+                  bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt}") as pbar:
+            
+            # 시드 설정
+            np.random.seed(seed)
+            
+            # BIPD 시스템 초기화
+            self.bipd_system = BIPDSystem(
+                symbols=self.symbols,
+                initial_capital=self.initial_capital,
+                lookback_window=252,
+                rebalance_frequency=5
+            )
+            
+            # 의사결정 분석기 초기화
+            self.decision_analyzer = DecisionAnalyzer(
+                output_dir=os.path.join(self.results_dir, "decision_analysis")
+            )
+            
+            # 데이터 로딩 (시스템 내부)
+            if self.data is None:
+                self.load_data()
+            
+            # 시스템에 데이터 설정
+            self.bipd_system.price_data = self.data["prices"]
+            self.bipd_system.returns_data = self.data["prices"].pct_change().dropna()
+            self.bipd_system.technical_indicators = self.data["features"]
+            self.bipd_system.market_features = self.data["features"]
+            
+            pbar.update(1)
     
     def run_training(self):
         """
@@ -227,7 +229,10 @@ class ImmunePortfolioBacktester:
                 "timestamp": datetime.now().isoformat()
             })
             
-            print(f"백테스트 완료 - 총 수익률: {results['total_return']:.2%}")
+            if 'total_return' in results:
+                print(f"백테스트 완료 - 총 수익률: {results['total_return']:.2%}")
+            else:
+                print("백테스트 완료 - 결과 처리 중 오류 발생")
             
             if return_model:
                 return portfolio_returns, self.bipd_system
@@ -259,12 +264,23 @@ class ImmunePortfolioBacktester:
         for decision in decision_history:
             try:
                 # 의사결정 분석기에 로깅
+                market_features = np.array(decision.get("market_features", []))
+                if len(market_features) == 0:
+                    # 빈 배열인 경우 기본값 생성
+                    market_features = np.zeros(12)
+                
+                # T-Cell 분석 데이터 생성 (crisis_detection이 없는 경우)
+                tcell_analysis = decision.get("crisis_detection", {
+                    "crisis_level": decision.get("crisis_level", 0.0),
+                    "decision_reasoning": "위기 감지 결과"
+                })
+                
                 self.decision_analyzer.log_decision(
                     date=decision["timestamp"],
-                    market_features=np.array(decision.get("market_features", [])),
-                    tcell_analysis=decision.get("crisis_detection", {}),
+                    market_features=market_features,
+                    tcell_analysis=tcell_analysis,
                     bcell_decisions=decision.get("bcell_explanations", {}),
-                    final_weights=decision.get("final_weights", np.array([])),
+                    final_weights=decision.get("final_weights", np.ones(10)/10),
                     portfolio_return=decision.get("portfolio_return", 0.0),
                     crisis_level=decision.get("crisis_level", 0.0)
                 )

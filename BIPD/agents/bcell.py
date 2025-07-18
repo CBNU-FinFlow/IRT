@@ -53,7 +53,7 @@ class BCell:
         self.strategy_network = StrategyNetwork(input_size, n_assets)
         self.optimizer = optim.Adam(self.strategy_network.parameters(), lr=0.001)
         self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-            self.optimizer, mode='max', factor=0.5, patience=50, verbose=False
+            self.optimizer, mode='max', factor=0.5, patience=50
         )
         
         # 경험 버퍼
@@ -295,6 +295,61 @@ class BCell:
         # 전문화 강도 업데이트
         if avg_reward > 0:
             self.specialization_strength = min(self.specialization_strength * 1.01, 1.0)
+            
+    def train_step(self, market_features, target_action):
+        """
+        단일 훈련 스텝 (사전 훈련용)
+        
+        Args:
+            market_features: 시장 특성 벡터
+            target_action: 타겟 액션 (전문 정책으로부터)
+        """
+        # 입력 차원 맞추기
+        if len(market_features) > self.input_size:
+            market_features = market_features[:self.input_size]
+        elif len(market_features) < self.input_size:
+            # 패딩
+            padded_features = np.zeros(self.input_size)
+            padded_features[:len(market_features)] = market_features
+            market_features = padded_features
+            
+        # 타겟 액션 정규화
+        target_action = np.abs(target_action)
+        if np.sum(target_action) > 0:
+            target_action = target_action / np.sum(target_action)
+        else:
+            target_action = np.ones(self.n_assets) / self.n_assets
+            
+        # 텐서 변환
+        state_tensor = torch.FloatTensor(market_features).unsqueeze(0)
+        target_tensor = torch.FloatTensor(target_action).unsqueeze(0)
+        
+        # 순전파
+        predicted_action = self.strategy_network(state_tensor)
+        
+        # 손실 계산 (MSE)
+        loss = F.mse_loss(predicted_action, target_tensor)
+        
+        # 역전파
+        self.optimizer.zero_grad()
+        loss.backward()
+        self.optimizer.step()
+        
+        return loss.item()
+        
+    def generate_strategy(self, market_features: np.ndarray) -> np.ndarray:
+        """
+        전략 생성 (generate_portfolio_weights의 별칭)
+        
+        Args:
+            market_features: 시장 특성 벡터
+            
+        Returns:
+            포트폴리오 가중치
+        """
+        # 기본 위기 수준 0.0으로 설정
+        crisis_level = 0.0
+        return self.generate_portfolio_weights(market_features, crisis_level)
     
     def get_performance_metrics(self) -> Dict[str, float]:
         """성능 지표 반환"""

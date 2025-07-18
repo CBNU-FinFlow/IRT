@@ -54,7 +54,15 @@ class DecisionAnalyzer:
         """
         # 지배적 위험 분석
         risk_features = market_features[:5] if len(market_features) >= 5 else market_features
-        dominant_risk_idx = np.argmax(np.abs(risk_features - np.mean(risk_features)))
+        
+        # 빈 배열 방어
+        if len(risk_features) == 0:
+            dominant_risk_idx = 0
+        else:
+            try:
+                dominant_risk_idx = np.argmax(np.abs(risk_features - np.mean(risk_features)))
+            except ValueError:
+                dominant_risk_idx = 0
         
         risk_map = {
             0: "volatility",

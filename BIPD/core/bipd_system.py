@@ -8,11 +8,13 @@ import pandas as pd
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any, Tuple
 import warnings
+from tqdm import tqdm
+import time
 
 from agents.tcell import TCell
 from agents.bcell import BCell
 from memory.memory_cell import MemorySystem
-from risk.risk_management import RiskManager, SafeCalculations
+from risk.risk_management import RiskManager, Calculations
 from utils.data_loader import (
     download_market_data, process_market_data, calculate_technical_indicators,
     calculate_returns, extract_market_features, 
@@ -117,10 +119,179 @@ class BIPDSystem:
         # 시간적 메커니즘
         self.time_window_manager = AdaptiveTimeWindowManager()
         self.pattern_detector = CyclicalPatternDetector()
-        self.state_encoder = TemporalStateEncoder()
+        self.state_encoder = TemporalStateEncoder(input_dim=12)  # 기본 시장 특성 차원
         
-        # 안전 계산 유틸리티
-        self.safe_calc = SafeCalculations()
+        # 계산 유틸리티
+        self.calc = Calculations()
+        
+    def extract_market_features(self, market_data, lookback=20):
+        """시장 특성 추출"""
+        if len(market_data) < lookback:
+            return np.zeros(12)
+        
+        returns = market_data.pct_change().dropna()
+        if len(returns) == 0:
+            return np.zeros(12)
+        
+        recent_returns = returns.iloc[-lookback:]
+        if len(recent_returns) == 0:
+            return np.zeros(12)
+            
+        # 기본 특성 계산
+        daily_return = self.calc.mean(recent_returns.mean(axis=1))
+        volatility = self.calc.std(recent_returns.std(axis=1))
+        
+        # 상관관계
+        correlation = self.calc.corr(recent_returns)
+        
+        # 모멘텀
+        momentum = self.calc.momentum(recent_returns)
+        
+        # 유동성 (거래량 기반 추정)
+        liquidity = 1.0 - min(volatility / 0.05, 1.0)
+        
+        # 시장 스트레스
+        market_stress = min(volatility / 0.03, 1.0)
+        
+        # 추가 특성
+        max_return = self.calc.mean(recent_returns.max(axis=1))
+        min_return = self.calc.mean(recent_returns.min(axis=1))
+        
+        # 변동성 클러스터링
+        vol_clustering = self.calc.std(recent_returns.std(axis=1))
+        
+        # 왜도와 첨도
+        skewness = self.calc.skew(recent_returns.mean(axis=1))
+        kurtosis = self.calc.kurtosis(recent_returns.mean(axis=1))
+        
+        # 트렌드
+        trend = self.calc.trend(recent_returns.mean(axis=1))
+        
+        return np.array([
+            daily_return, volatility, correlation, momentum, liquidity,
+            market_stress, max_return, min_return, vol_clustering,
+            skewness, kurtosis, trend
+        ])
+        
+    def immune_response(self, market_features, training=False):
+        """
+        면역 반응 실행
+        
+        Returns:
+            weights: 포트폴리오 가중치
+            response_type: 반응 유형
+            crisis_level: 위기 수준
+        """
+        # 1. T-Cell 위기 감지
+        try:
+            crisis_result = self.tcell.detect_crisis(market_features)
+            crisis_level = crisis_result.get('crisis_level', 0.0)
+        except:
+            crisis_level = 0.0
+            
+        # 2. B-Cell 전략 생성
+        try:
+            bcell_weights = []
+            for specialty, bcell in self.bcells.items():
+                weight = bcell.generate_strategy(market_features)
+                bcell_weights.append(weight)
+            
+            # 가중 평균 계산
+            if bcell_weights:
+                weights = np.mean(bcell_weights, axis=0)
+                weights = np.abs(weights)  # 양수 보장
+                weights = weights / np.sum(weights)  # 정규화
+            else:
+                weights = np.ones(self.n_assets) / self.n_assets
+        except:
+            weights = np.ones(self.n_assets) / self.n_assets
+            
+        # 3. 위기 수준에 따른 조정
+        if crisis_level > 0.7:
+            # 고위기: 보수적 전략
+            conservative_weights = np.ones(self.n_assets) / self.n_assets * 0.5
+            weights = 0.3 * weights + 0.7 * conservative_weights
+            response_type = "defensive"
+        elif crisis_level > 0.4:
+            # 중위기: 균형 전략
+            response_type = "balanced"
+        else:
+            # 저위기: 공격적 전략
+            response_type = "aggressive"
+            
+        # 4. 최종 정규화
+        weights = np.abs(weights)
+        if np.sum(weights) > 0:
+            weights = weights / np.sum(weights)
+        else:
+            weights = np.ones(self.n_assets) / self.n_assets
+            
+        return weights, response_type, crisis_level
+        
+    def pretrain_bcells(self, market_data, episodes=500):
+        """B-Cell 사전 훈련"""
+        # 전문 정책 함수들
+        expert_policies = {
+            "volatility": self._volatility_response,
+            "correlation": self._correlation_response, 
+            "momentum": self._momentum_response,
+            "liquidity": self._liquidity_response,
+            "memory_recall": self._memory_response
+        }
+        
+        # tqdm으로 진행률 표시
+        with tqdm(total=episodes, desc="B-Cell 사전 훈련", 
+                  bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]") as pbar:
+            
+            for episode in range(episodes):
+                # 랜덤 시점 선택
+                start_idx = np.random.randint(20, len(market_data) - 50)
+                current_data = market_data.iloc[:start_idx]
+                market_features = self.extract_market_features(current_data)
+                crisis_level = np.random.uniform(0.2, 0.8)
+                
+                # 각 B-Cell 훈련
+                for specialty, bcell in self.bcells.items():
+                    if specialty in expert_policies:
+                        # 전문 정책으로부터 타겟 액션 생성
+                        expert_action = expert_policies[specialty](crisis_level)
+                        
+                        # B-Cell 네트워크 훈련
+                        bcell.train_step(market_features, expert_action)
+                
+                pbar.update(1)
+        
+    def _volatility_response(self, crisis_level):
+        """변동성 전문 정책"""
+        base_weights = np.ones(self.n_assets) / self.n_assets
+        volatility_factor = 1.0 - crisis_level * 0.5
+        return base_weights * volatility_factor
+        
+    def _correlation_response(self, crisis_level):
+        """상관관계 전문 정책"""
+        base_weights = np.ones(self.n_assets) / self.n_assets
+        if crisis_level > 0.6:
+            # 고위기시 분산 투자
+            return base_weights * 0.8
+        return base_weights
+        
+    def _momentum_response(self, crisis_level):
+        """모멘텀 전문 정책"""
+        base_weights = np.ones(self.n_assets) / self.n_assets
+        momentum_factor = 1.0 + (1.0 - crisis_level) * 0.3
+        return base_weights * momentum_factor
+        
+    def _liquidity_response(self, crisis_level):
+        """유동성 전문 정책"""
+        base_weights = np.ones(self.n_assets) / self.n_assets
+        liquidity_factor = 1.0 - crisis_level * 0.3
+        return base_weights * liquidity_factor
+        
+    def _memory_response(self, crisis_level):
+        """메모리 기반 정책"""
+        base_weights = np.ones(self.n_assets) / self.n_assets
+        memory_factor = 1.0 - crisis_level * 0.2
+        return base_weights * memory_factor
     
     def load_data(self, 
                   start_date: str = "2008-01-01",
@@ -179,19 +350,75 @@ class BIPDSystem:
         train_features = self.market_features.iloc[:train_size]
         
         # T-Cell 훈련
-        print("T-Cell 훈련 중...")
-        self.tcell.fit(train_features.values)
+        with tqdm(total=1, desc="T-Cell Training", bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt}") as pbar:
+            self.tcell.fit(train_features.values)
+            pbar.update(1)
+        
+        # B-Cell 사전 훈련
+        self.pretrain_bcells(self.price_data.iloc[:train_size], episodes=500)
         
         # 시간적 패턴 학습
-        print("시간적 패턴 학습 중...")
-        self.pattern_detector.fit(train_features.values)
+        with tqdm(total=1, desc="Temporal Pattern Learning", bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt}") as pbar:
+            self.pattern_detector.fit(train_features.values)
+            self.time_window_manager.initialize(train_features.values)
+            pbar.update(1)
         
-        # 적응형 시간 윈도우 초기화
-        self.time_window_manager.initialize(train_features.values)
+        # 실제 강화학습 수행
+        self._run_reinforcement_learning(self.price_data.iloc[:train_size], episodes=100)
         
         self.is_fitted = True
         print("시스템 훈련 완료")
         return self
+    
+    def _run_reinforcement_learning(self, train_data: pd.DataFrame, episodes: int = 100):
+        """실제 강화학습 수행"""
+        
+        with tqdm(total=episodes, desc="Reinforcement Learning Episodes", 
+                  bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]") as pbar:
+            
+            for episode in range(episodes):
+                # 랜덤 시작점 선택
+                start_idx = np.random.randint(50, len(train_data) - 100)
+                episode_length = min(50, len(train_data) - start_idx)
+                
+                episode_rewards = []
+                
+                for step in range(episode_length):
+                    current_idx = start_idx + step
+                    
+                    # 현재까지의 데이터로 시장 특성 추출
+                    current_data = train_data.iloc[:current_idx+1]
+                    market_features = self.extract_market_features(current_data)
+                    
+                    # Temporal 분석 추가
+                    current_volatility = self.calc.std(current_data.pct_change().dropna().std(axis=1))
+                    adaptive_window = self.time_window_manager.calculate_adaptive_window(
+                        current_data, current_volatility, 0.0
+                    )
+                    cycle_info = self.pattern_detector.detect_cycles(current_data)
+                    
+                    # 면역 반응 실행
+                    weights, response_type, crisis_level = self.immune_response(
+                        market_features, training=True
+                    )
+                    
+                    # 다음 스텝의 실제 수익률 계산
+                    if current_idx + 1 < len(train_data):
+                        next_returns = train_data.iloc[current_idx+1].pct_change()
+                        portfolio_return = np.sum(weights * next_returns.fillna(0))
+                        episode_rewards.append(portfolio_return)
+                        
+                        # 경험 저장
+                        self._store_experience(
+                            market_features, weights, portfolio_return, crisis_level
+                        )
+                        
+                        # B-Cell 학습
+                        self._update_bcells(
+                            market_features, weights, portfolio_return, crisis_level
+                        )
+                
+                pbar.update(1)
     
     def step(self, current_idx: int) -> Dict[str, Any]:
         """
@@ -409,36 +636,122 @@ class BIPDSystem:
         self.decision_history = []
         
         # 백테스트 실행
-        for i in range(start_idx, end_idx):
-            if verbose and i % 50 == 0:
-                progress = (i - start_idx) / (end_idx - start_idx) * 100
-                print(f"진행률: {progress:.1f}% ({i}/{end_idx})")
+        test_data = self.price_data.iloc[start_idx:end_idx]
+        test_returns = test_data.pct_change().dropna()
+        
+        if len(test_returns) == 0:
+            print("Warning: No test returns data available")
+            return self._generate_backtest_results(start_idx, end_idx)
+        
+        portfolio_values = [self.portfolio_value]
+        
+        with tqdm(total=len(test_returns), desc="Backtest Execution", 
+                  bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]") as pbar:
             
-            try:
-                step_result = self.step(i)
+            for i in range(len(test_returns)):
+                try:
+                    # 현재까지의 데이터
+                    current_data = test_data.iloc[:i+1]
+                    current_idx = start_idx + i
+                    
+                    # 시장 특성 추출 (훈련 시와 동일한 특성 사용)
+                    if current_idx < len(self.market_features):
+                        market_features = self.market_features.iloc[current_idx].values
+                    else:
+                        # 인덱스 범위를 벗어난 경우 마지막 특성 사용
+                        market_features = self.market_features.iloc[-1].values
+                    
+                    # Temporal 분석 수행
+                    current_volatility = self.calc.std(current_data.pct_change().dropna().std(axis=1))
+                    adaptive_window = self.time_window_manager.calculate_adaptive_window(
+                        current_data, current_volatility, 0.0
+                    )
+                    cycle_info = self.pattern_detector.detect_cycles(current_data)
+                    
+                    # 면역 반응 실행
+                    weights, response_type, crisis_level = self.immune_response(
+                        market_features, training=False
+                    )
+                    
+                    # T-Cell 분석 결과 생성
+                    crisis_detection = self.tcell.detect_crisis(market_features)
+                    
+                    # B-Cell 설명 생성
+                    bcell_explanations = {}
+                    for specialty, bcell in self.bcells.items():
+                        bcell_explanations[specialty] = bcell.get_decision_explanation(
+                            market_features, crisis_level
+                        )
+                    
+                    # 포트폴리오 수익률 계산
+                    portfolio_return = np.sum(weights * test_returns.iloc[i])
+                    portfolio_values.append(portfolio_values[-1] * (1 + portfolio_return))
+                    
+                    # 현재 포트폴리오 가치 업데이트
+                    self.portfolio_value = portfolio_values[-1]
+                    
+                    # 기록
+                    step_result = {
+                        'timestamp': test_returns.index[i],
+                        'market_features': market_features,
+                        'crisis_detection': crisis_detection,
+                        'memory_recall': None,  # 메모리 시스템 결과 추가
+                        'bcell_explanations': bcell_explanations,
+                        'crisis_level': crisis_level,
+                        'final_weights': weights,
+                        'portfolio_value': portfolio_values[-1],
+                        'portfolio_return': portfolio_return,
+                        'adaptive_window': adaptive_window,
+                        'cycle_info': cycle_info
+                    }
+                    
+                    self._update_history(step_result)
+                    
+                    # 리밸런싱 로깅 (진행률 바에 포함)
+                    if i % self.rebalance_frequency == 0:
+                        pbar.set_postfix({
+                            'Crisis': f'{crisis_level:.3f}', 
+                            'Value': f'{portfolio_values[-1]:.0f}',
+                            'Return': f'{portfolio_return:.3f}'
+                        })
+                    
+                except Exception as e:
+                    print(f"\nStep {i} error: {str(e)}")
+                    pbar.set_postfix({'Error': f'Step {i}'})
+                    continue
                 
-                # 리밸런싱 주기 확인
-                if self.step_count % self.rebalance_frequency == 0:
-                    if verbose:
-                        print(f"리밸런싱: {step_result['timestamp']}, "
-                              f"위기수준: {step_result['crisis_level']:.3f}, "
-                              f"포트폴리오 가치: {self.portfolio_value:.2f}")
-                
-            except Exception as e:
-                print(f"Error at step {i}: {str(e)}")
-                continue
+                pbar.update(1)
         
         # 결과 생성
         results = self._generate_backtest_results(start_idx, end_idx)
         
-        print(f"백테스트 완료. 총 수익률: {results['total_return']:.2%}")
+        if 'total_return' in results:
+            print(f"백테스트 완료. 총 수익률: {results['total_return']:.2%}")
+        else:
+            print("백테스트 완료. 결과 처리 중 오류 발생")
         
         return results
     
     def _generate_backtest_results(self, start_idx: int, end_idx: int) -> Dict[str, Any]:
         """백테스트 결과 생성"""
         if len(self.performance_history) == 0:
-            return {'error': '백테스트 데이터가 없습니다'}
+            return {
+                'error': '백테스트 데이터가 없습니다',
+                'total_return': 0.0,
+                'benchmark_return': 0.0,
+                'excess_return': 0.0,
+                'volatility': 0.0,
+                'sharpe_ratio': 0.0,
+                'max_drawdown': 0.0,
+                'final_value': self.initial_capital,
+                'num_trades': 0,
+                'avg_crisis_level': 0.0,
+                'immune_system_stats': {},
+                'performance_history': [],
+                'weights_history': [],
+                'crisis_history': [],
+                'decision_history': []
+            }
         
         # 성과 계산
         total_return = (self.portfolio_value / self.initial_capital) - 1
